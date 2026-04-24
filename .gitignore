@@ -1,0 +1,13 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Dataset & Notebook
+*.csv
+*.ipynb
+
+# Python Cache & OS Files
+__pycache__/
+*.pyc
+.DS_Store
