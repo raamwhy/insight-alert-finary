@@ -99,13 +99,63 @@ uvicorn api_service:app --reload
 Klasifikasi kondisi keuangan bulanan: `survival` / `stable` / `growth`.
 
 - **Kontrak input (ringkas)**:
-  - **Wajib (IDR)**: `monthly_income`, `monthly_expense_total`, `actual_savings`, `emergency_fund`, `budget_goal`
-  - **Opsional**: `credit_score`, `loan_payment`, `investment_amount`, `subscription_services`, `transaction_count`,
-    `rent_or_mortgage`, `discretionary_spending`, `essential_spending`, `main_category`, `fraud_flag`, `debt_to_income_ratio`
+  - **Wajib (IDR, 6 field)**: `monthly_income`, `monthly_expense_total`, `actual_savings`, `budget_goal`, `emergency_fund`, `investment_amount`
 - **Catatan penting**:
   - Input uang di API selalu **IDR**.
   - Sebelum masuk scaler + model, nilai uang dikonversi ke skala training dengan \( \text{nilai\_training} = \text{IDR} / 2500 \).
-  - Jika `discretionary_spending` / `essential_spending` tidak tersedia, API akan mengaproksimasi dari total pengeluaran (30%/70%).
+  - User tidak perlu mengirim fitur turunan seperti `net_cash_flow`, `expense_ratio`, `savings_rate`, `savings_goal_met`, `spending_efficiency` (backend menghitung otomatis).
+
+**Example request**:
+
+```json
+{
+  "monthly_income": 9000000,
+  "monthly_expense_total": 5500000,
+  "actual_savings": 2500000,
+  "budget_goal": 2000000,
+  "emergency_fund": 15000000,
+  "investment_amount": 1000000
+}
+```
+
+**Expected response (contoh)**:
+
+```json
+{
+  "classification": "growth",
+  "score": 0.94,
+  "probabilities": {
+    "survival": 0.01,
+    "stable": 0.05,
+    "growth": 0.94
+  },
+  "financial_indicators": {
+    "monthly_income": 9000000,
+    "monthly_expense_total": 5500000,
+    "actual_savings": 2500000,
+    "budget_goal": 2000000,
+    "emergency_fund": 15000000,
+    "investment_amount": 1000000,
+    "net_cash_flow": 3500000,
+    "expense_ratio": 0.6111,
+    "savings_rate": 0.2778,
+    "spending_efficiency": 0.6364
+  },
+  "risk_flags": {
+    "negative_cash_flow": false,
+    "high_expense_ratio": false,
+    "low_savings_rate": false,
+    "savings_goal_not_met": false,
+    "low_spending_efficiency": false
+  },
+  "recommendation_focus": [
+    "maintain_growth_momentum",
+    "increase_investment_allocation",
+    "optimize_long_term_savings"
+  ],
+  "explanation": "The user is classified as growth because monthly cash flow and savings indicators are strong. Model confidence: 0.94."
+}
+```
 
 ### 2) `POST /predict`
 Prediksi saldo bulan depan + warning + rekomendasi (Insight model).
