@@ -99,7 +99,7 @@ uvicorn api_service:app --reload
 Klasifikasi kondisi keuangan bulanan: `survival` / `stable` / `growth`.
 
 - **Kontrak input (ringkas)**:
-  - **Wajib (IDR, 6 field)**: `monthly_income`, `monthly_expense_total`, `actual_savings`, `budget_goal`, `emergency_fund`, `investment_amount`
+  - **Wajib (IDR, 5 field)**: `monthly_income`, `monthly_expense_total`, `actual_savings`, `budget_goal`, `emergency_fund`
 - **Catatan penting**:
   - Input uang di API selalu **IDR**.
   - Sebelum masuk scaler + model, nilai uang dikonversi ke skala training dengan \( \text{nilai\_training} = \text{IDR} / 2500 \).
@@ -113,8 +113,7 @@ Klasifikasi kondisi keuangan bulanan: `survival` / `stable` / `growth`.
   "monthly_expense_total": 5500000,
   "actual_savings": 2500000,
   "budget_goal": 2000000,
-  "emergency_fund": 15000000,
-  "investment_amount": 1000000
+  "emergency_fund": 15000000
 }
 ```
 
@@ -135,7 +134,6 @@ Klasifikasi kondisi keuangan bulanan: `survival` / `stable` / `growth`.
     "actual_savings": 2500000,
     "budget_goal": 2000000,
     "emergency_fund": 15000000,
-    "investment_amount": 1000000,
     "net_cash_flow": 3500000,
     "expense_ratio": 0.6111,
     "savings_rate": 0.2778,

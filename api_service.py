@@ -162,7 +162,6 @@ class ClassifyRequest(BaseModel):
     actual_savings: float = Field(..., ge=0, description="Tabungan aktual bulan ini (IDR). Wajib >= 0.")
     budget_goal: float = Field(..., ge=0, description="Target tabungan/budget goal bulanan (IDR). Wajib >= 0.")
     emergency_fund: float = Field(..., ge=0, description="Dana darurat saat ini (IDR). Wajib >= 0.")
-    investment_amount: float = Field(..., ge=0, description="Jumlah investasi bulanan (IDR). Wajib >= 0.")
 
     # OpenAPI examples (Pydantic v2). Safe to keep even if ignored.
     model_config = {
@@ -174,7 +173,6 @@ class ClassifyRequest(BaseModel):
                     "actual_savings": 2500000,
                     "budget_goal": 2000000,
                     "emergency_fund": 15000000,
-                    "investment_amount": 1000000,
                 }
             ]
         }
@@ -192,7 +190,6 @@ class ClassificationFinancialIndicators(BaseModel):
     actual_savings: float
     budget_goal: float
     emergency_fund: float
-    investment_amount: float
     net_cash_flow: float
     expense_ratio: float
     savings_rate: float
@@ -229,7 +226,6 @@ class ClassifyResponse(BaseModel):
                         "actual_savings": 2500000,
                         "budget_goal": 2000000,
                         "emergency_fund": 15000000,
-                        "investment_amount": 1000000,
                         "net_cash_flow": 3500000,
                         "expense_ratio": 0.6111,
                         "savings_rate": 0.2778,
@@ -322,7 +318,6 @@ def build_classification_features(payload: ClassifyRequest) -> tuple[Dict[str, f
     sav_idr = float(payload.actual_savings)
     goal_idr = float(payload.budget_goal)
     emg_idr = float(payload.emergency_fund)
-    inv_idr = float(payload.investment_amount)
 
     # 2) Derived indicators in IDR (for response)
     net_cf_idr = inc_idr - exp_idr
@@ -337,7 +332,6 @@ def build_classification_features(payload: ClassifyRequest) -> tuple[Dict[str, f
         "actual_savings": sav_idr,
         "budget_goal": goal_idr,
         "emergency_fund": emg_idr,
-        "investment_amount": inv_idr,
         "net_cash_flow": net_cf_idr,
         "expense_ratio": expense_ratio,
         "savings_rate": savings_rate,
@@ -359,7 +353,6 @@ def build_classification_features(payload: ClassifyRequest) -> tuple[Dict[str, f
     sav = sav_idr / UNIT_SCALE
     goal = goal_idr / UNIT_SCALE
     emg = emg_idr / UNIT_SCALE
-    inv = inv_idr / UNIT_SCALE
 
     net_cf = inc - exp
     exp_ratio_scaled = _safe_div(exp, inc)
@@ -378,7 +371,6 @@ def build_classification_features(payload: ClassifyRequest) -> tuple[Dict[str, f
         "budget_goal": goal,
         "savings_goal_met": goal_met_scaled,
         "emergency_fund": emg,
-        "investment_amount": inv,
         "spending_efficiency": spend_eff_scaled,
     }
     for k, v in update.items():

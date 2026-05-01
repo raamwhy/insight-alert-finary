@@ -7,7 +7,7 @@
     "1": "stable",
     "2": "growth"
   },
-  "feature_count": 11,
+  "feature_count": 10,
   "feature_columns": [
     "monthly_income",
     "monthly_expense_total",
@@ -18,7 +18,6 @@
     "budget_goal",
     "savings_goal_met",
     "emergency_fund",
-    "investment_amount",
     "spending_efficiency"
   ],
   "feature_selection": {
@@ -28,8 +27,7 @@
       "monthly_expense_total",
       "actual_savings",
       "budget_goal",
-      "emergency_fund",
-      "investment_amount"
+      "emergency_fund"
     ],
     "computed_features": [
       "net_cash_flow",
@@ -48,7 +46,6 @@
       "budget_goal",
       "savings_goal_met",
       "emergency_fund",
-      "investment_amount",
       "spending_efficiency"
     ],
     "notes": "Tidak menggunakan fitur yang sulit didapat dari user. Fitur turunan dihitung deterministik dengan safe division."
@@ -97,30 +94,30 @@
       }
     }
   },
-  "train_accuracy": 0.9671428571428572,
-  "val_accuracy": 0.9488888888888889,
+  "train_accuracy": 0.9747619047619047,
+  "val_accuracy": 0.9511111111111111,
   "test_accuracy": 0.9666666666666667,
-  "macro_f1": 0.9547980304564886,
-  "weighted_f1": 0.9680085201186683,
+  "macro_f1": 0.9513291929654052,
+  "weighted_f1": 0.9680242069438683,
   "per_class_precision": {
     "0": 1.0,
     "1": 0.8148148148148148,
     "2": 1.0
   },
   "per_class_recall": {
-    "0": 0.9795918367346939,
+    "0": 0.9489795918367347,
     "1": 1.0,
-    "2": 0.9545454545454546
+    "2": 0.965034965034965
   },
   "per_class_f1": {
-    "0": 0.9896907216494846,
+    "0": 0.9738219895287958,
     "1": 0.8979591836734694,
-    "2": 0.9767441860465116
+    "2": 0.9822064056939501
   },
   "confusion_matrix": [
     [
-      96,
-      2,
+      93,
+      5,
       0
     ],
     [
@@ -130,13 +127,13 @@
     ],
     [
       0,
-      13,
-      273
+      10,
+      276
     ]
   ],
   "loss_function": "weighted_categorical_crossentropy(class_weight)",
   "optimizer": "AdamW",
-  "epochs_trained": 57,
-  "best_epoch": 37,
+  "epochs_trained": 64,
+  "best_epoch": 44,
   "notes": "Retrain dengan fitur minimal realistis + fitur turunan deterministik + custom GradientTape."
 }
