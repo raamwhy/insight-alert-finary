@@ -16,7 +16,8 @@ from pydantic import BaseModel, Field
 ARTIFACT_DIR = Path("artifacts")
 UNIT_SCALE = 2500.0  # Konversi IDR (Konsisten dengan training dataset)
 USD_TO_IDR = 17000.0 # Konversi Prediksi Earnings USD ke IDR (Untuk Side Hustle)
-
+INS_DEFAULT_INCOME_TYPE = "Salary"
+INS_DEFAULT_MAIN_CATEGORY = "Utilities"
 
 def _safe_div(n: float, d: float) -> float:
     d = float(d)
@@ -123,8 +124,6 @@ class PredictRequest(BaseModel):
     target_tabungan: float = Field(..., description="Target tabungan (IDR)")
     loan_payment: float = Field(..., description="Total cicilan utang (IDR)")
     emergency_fund: float = Field(..., description="Dana darurat (IDR)")
-    income_type: str = Field("Salary", description="Salary/Mixed")
-    main_category: str = Field("Utilities", description="Kategori pengeluaran")
 
 class PredictResponse(BaseModel):
     predicted_next_month_balance: float
@@ -515,8 +514,12 @@ def predict_insight(payload: PredictRequest):
             "debt_ratio_flag": 1.0 if dti >= 0.35 else 0.0, "low_emergency_flag": 1.0 if buffer < 1.0 else 0.0
         })
         
-        if f"income_type_{payload.income_type}" in features: features[f"income_type_{payload.income_type}"] = 1.0
-        if f"category_{payload.main_category}" in features: features[f"category_{payload.main_category}"] = 1.0
+        default_income_type = INS_DEFAULT_INCOME_TYPE
+        default_main_category = INS_DEFAULT_MAIN_CATEGORY
+        if f"income_type_{default_income_type}" in features:
+            features[f"income_type_{default_income_type}"] = 1.0
+        if f"category_{default_main_category}" in features:
+            features[f"category_{default_main_category}"] = 1.0
         features["cash_flow_status_Positive"] = 1.0 if net_cf > 0 else 0.0
         features["cash_flow_status_Neutral"] = 1.0 if net_cf <= 0 else 0.0
 
