@@ -1,9 +1,10 @@
-# 🚀 FINARY - AI Insight Profile Service (Deployed)
-
-**FINARY AI** adalah REST API berbasis Deep Learning yang dirancang untuk menganalisis profil keuangan pengguna secara cerdas. Layanan ini merupakan bagian inti dari **Capstone Project DBS Coding Camp 2026 (AI Track)**.
+# 🚀 FINARY AI MODEL
+API berbasis Deep Learning yang dirancang untuk menganalisis profil keuangan pengguna secara cerdas.
 
 **📖 Final Release:** [https://huggingface.co/spaces/raamwhy/finary-model/tree/main](https://huggingface.co/spaces/raamwhy/finary-model/tree/main)
+
 **📍 Dashboard URL:** [https://raamwhy-finary-model.hf.space](https://raamwhy-finary-model.hf.space)  
+
 **📖 API Documentation:** [https://raamwhy-finary-model.hf.space/docs](https://raamwhy-finary-model.hf.space/docs)
 
 ## 🧠 Model & Endpoints
