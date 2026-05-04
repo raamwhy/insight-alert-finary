@@ -5,12 +5,6 @@
 **📍 Production URL:** [https://raamwhy-finary-model.hf.space](https://raamwhy-finary-model.hf.space)  
 **📖 API Documentation:** [https://raamwhy-finary-model.hf.space/docs](https://raamwhy-finary-model.hf.space/docs)
 
-## 🛠️ Tech Stack & Deployment
-- **Framework:** FastAPI (Python 3.10+)
-- **ML Engine:** TensorFlow 2.x (Functional API)
-- **Infrastructure:** Hugging Face Spaces (Gradio/Python SDK)
-- **Data Processing:** Scikit-Learn (RobustScaler), Pandas, Joblib
-
 ## 🧠 Model & Endpoints
 
 Layanan ini mengintegrasikan tiga model Deep Learning utama yang bekerja secara independen:
@@ -26,6 +20,3 @@ Memberikan analisis mendalam menggunakan model multi-output:
 
 ### 3️⃣ Side-Hustle Recommendation (`POST /recommend-side-hustle`)
 Memberikan 7 saran pekerjaan sampingan terbaik berdasarkan level pengalaman dan kategori minat pengguna, lengkap dengan estimasi pendapatan bulanan dalam IDR.
-  "budget_goal": 1500000,
-  "emergency_fund": 5000000
-}'
