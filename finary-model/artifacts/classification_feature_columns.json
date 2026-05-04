@@ -1,0 +1,12 @@
+[
+  "monthly_income",
+  "monthly_expense_total",
+  "actual_savings",
+  "net_cash_flow",
+  "expense_ratio",
+  "savings_rate",
+  "budget_goal",
+  "savings_goal_met",
+  "emergency_fund",
+  "spending_efficiency"
+]
