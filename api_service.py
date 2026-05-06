@@ -16,6 +16,12 @@ from pydantic import BaseModel, Field
 ARTIFACT_DIR = Path("artifacts")
 UNIT_SCALE = 2500.0  # Konversi IDR (Konsisten dengan training dataset)
 USD_TO_IDR = 17000.0 # Konversi Prediksi Earnings USD ke IDR (Untuk Side Hustle)
+INS_DEFAULT_INCOME_TYPE = "Salary"
+INS_DEFAULT_MAIN_CATEGORY = "Utilities"
+
+def _safe_div(n: float, d: float) -> float:
+    d = float(d)
+    return float(n) / d if d > 0 else 0.0
 
 # =========================================
 # 2. CLASS CUSTOM LAYER (WAJIB ADA DI SINI)
@@ -118,8 +124,6 @@ class PredictRequest(BaseModel):
     target_tabungan: float = Field(..., description="Target tabungan (IDR)")
     loan_payment: float = Field(..., description="Total cicilan utang (IDR)")
     emergency_fund: float = Field(..., description="Dana darurat (IDR)")
-    income_type: str = Field("Salary", description="Salary/Mixed")
-    main_category: str = Field("Utilities", description="Kategori pengeluaran")
 
 class PredictResponse(BaseModel):
     predicted_next_month_balance: float
@@ -143,50 +147,106 @@ class SideHustleResponse(BaseModel):
 
 # --- Classification (Financial Scenario) ---
 class ClassifyRequest(BaseModel):
-    # ==========================
-    # Input wajib (IDR)
-    # ==========================
-    monthly_income: float = Field(..., description="Pendapatan bulanan (IDR)")
-    monthly_expense_total: float = Field(..., description="Total pengeluaran bulanan (IDR)")
-    actual_savings: float = Field(..., description="Tabungan aktual bulan ini (IDR)")
-    emergency_fund: float = Field(..., description="Dana darurat saat ini (IDR)")
-    budget_goal: float = Field(..., description="Target tabungan/budget goal bulanan (IDR)")
+    """Payload minimal untuk klasifikasi kondisi keuangan bulanan.
 
-    # ==========================
-    # Input opsional (kalau ada)
-    # ==========================
-    credit_score: float | None = Field(None, description="Credit score (default 650 jika kosong)")
-    loan_payment: float | None = Field(None, description="Total cicilan bulanan (IDR, default 0)")
-    investment_amount: float | None = Field(None, description="Jumlah investasi bulanan (IDR, default 0)")
-    subscription_services: int | None = Field(None, description="Jumlah subscription aktif (default 0)")
-    transaction_count: int | None = Field(None, description="Jumlah transaksi bulanan (default 0)")
-    rent_or_mortgage: float | None = Field(None, description="Sewa/KPR bulanan (IDR, default 0)")
-    discretionary_spending: float | None = Field(
-        None,
-        description="Pengeluaran non-esensial bulanan (IDR). Jika kosong akan diaproksimasi 30% dari expense.",
-    )
-    essential_spending: float | None = Field(
-        None,
-        description="Pengeluaran esensial bulanan (IDR). Jika kosong akan diaproksimasi 70% dari expense.",
-    )
-    main_category: str | None = Field(
-        None,
-        description="Kategori utama (untuk one-hot terbatas: Education/Entertainment/Transportation).",
-    )
-    fraud_flag: int | None = Field(None, description="Indikasi fraud (0/1, default 0)")
-    debt_to_income_ratio: float | None = Field(
-        None,
-        description="Rasio utang terhadap pendapatan (opsional). Jika kosong akan diturunkan dari loan_payment/income.",
-    )
+    Catatan:
+    - Semua input uang dalam **IDR asli**.
+    - Backend akan melakukan scaling internal (IDR -> training space) dengan `UNIT_SCALE`
+      dan menghitung fitur turunan secara deterministik.
+    - Frontend **tidak perlu** mengirim fitur turunan seperti `net_cash_flow`, `expense_ratio`, dll.
+    """
+
+    monthly_income: float = Field(..., gt=0, description="Pendapatan bulanan (IDR). Wajib > 0.")
+    monthly_expense_total: float = Field(..., ge=0, description="Total pengeluaran bulanan (IDR). Wajib >= 0.")
+    actual_savings: float = Field(..., ge=0, description="Tabungan aktual bulan ini (IDR). Wajib >= 0.")
+    budget_goal: float = Field(..., ge=0, description="Target tabungan/budget goal bulanan (IDR). Wajib >= 0.")
+    emergency_fund: float = Field(..., ge=0, description="Dana darurat saat ini (IDR). Wajib >= 0.")
+
+    # OpenAPI examples (Pydantic v2). Safe to keep even if ignored.
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "monthly_income": 9000000,
+                    "monthly_expense_total": 5500000,
+                    "actual_savings": 2500000,
+                    "budget_goal": 2000000,
+                    "emergency_fund": 15000000,
+                }
+            ]
+        }
+    }
+
+class ClassificationProbabilities(BaseModel):
+    survival: float
+    stable: float
+    growth: float
+
+
+class ClassificationFinancialIndicators(BaseModel):
+    monthly_income: float
+    monthly_expense_total: float
+    actual_savings: float
+    budget_goal: float
+    emergency_fund: float
+    net_cash_flow: float
+    expense_ratio: float
+    savings_rate: float
+    spending_efficiency: float
+
+
+class ClassificationRiskFlags(BaseModel):
+    negative_cash_flow: bool
+    high_expense_ratio: bool
+    low_savings_rate: bool
+    savings_goal_not_met: bool
+    low_spending_efficiency: bool
+
 
 class ClassifyResponse(BaseModel):
     classification: str
     score: float
-    probabilities: Dict[str, float]
-    financial_indicators: Dict[str, float]
-    risk_flags: Dict[str, bool]
+    probabilities: ClassificationProbabilities
+    financial_indicators: ClassificationFinancialIndicators
+    risk_flags: ClassificationRiskFlags
     recommendation_focus: List[str]
     explanation: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "classification": "growth",
+                    "score": 0.94,
+                    "probabilities": {"survival": 0.01, "stable": 0.05, "growth": 0.94},
+                    "financial_indicators": {
+                        "monthly_income": 9000000,
+                        "monthly_expense_total": 5500000,
+                        "actual_savings": 2500000,
+                        "budget_goal": 2000000,
+                        "emergency_fund": 15000000,
+                        "net_cash_flow": 3500000,
+                        "expense_ratio": 0.6111,
+                        "savings_rate": 0.2778,
+                        "spending_efficiency": 0.6364,
+                    },
+                    "risk_flags": {
+                        "negative_cash_flow": False,
+                        "high_expense_ratio": False,
+                        "low_savings_rate": False,
+                        "savings_goal_not_met": False,
+                        "low_spending_efficiency": False,
+                    },
+                    "recommendation_focus": [
+                        "maintain_growth_momentum",
+                        "increase_investment_allocation",
+                        "optimize_long_term_savings",
+                    ],
+                    "explanation": "The user is classified as growth because monthly cash flow and savings indicators are strong. Model confidence: 0.94.",
+                }
+            ]
+        }
+    }
 
 # =========================================
 # 4. LOAD ARTIFACTS (MODEL PRODUCTION)
@@ -212,18 +272,31 @@ PLATFORMS = sh_stats["platforms"]
 PROJECT_TYPES = sh_stats["project_types"]
 
 # --- Classification Model ---
-CLS_MODEL = tf.keras.models.load_model(
-    ARTIFACT_DIR / "classification_model.keras",
-    # Keras 3 menyimpan registered_name `finary>ResidualDenseBlock`, jadi kita map keduanya.
-    custom_objects={
-        "ResidualDenseBlock": ResidualDenseBlock,
-        "finary>ResidualDenseBlock": ResidualDenseBlock,
-    },
-    compile=False,
-)
-CLS_SCALER = joblib.load(ARTIFACT_DIR / "classification_scaler.joblib")
-with open(ARTIFACT_DIR / "classification_feature_columns.json", "r") as f: CLS_FEAT_COLS = json.load(f)
-with open(ARTIFACT_DIR / "classification_label_mapping.json", "r") as f: CLS_LABEL_MAPPING = json.load(f)
+CLS_MODEL = None
+CLS_SCALER = None
+CLS_FEAT_COLS: list[str] = []
+CLS_LABEL_MAPPING: dict[str, str] = {}
+try:
+    CLS_MODEL = tf.keras.models.load_model(
+        ARTIFACT_DIR / "classification_model.keras",
+        # Keras 3 menyimpan registered_name `finary>ResidualDenseBlock`, jadi kita map keduanya.
+        custom_objects={
+            "ResidualDenseBlock": ResidualDenseBlock,
+            "finary>ResidualDenseBlock": ResidualDenseBlock,
+        },
+        compile=False,
+    )
+    CLS_SCALER = joblib.load(ARTIFACT_DIR / "classification_scaler.joblib")
+    with open(ARTIFACT_DIR / "classification_feature_columns.json", "r", encoding="utf-8") as f:
+        CLS_FEAT_COLS = json.load(f)
+    with open(ARTIFACT_DIR / "classification_label_mapping.json", "r", encoding="utf-8") as f:
+        CLS_LABEL_MAPPING = json.load(f)
+except Exception:
+    # Jangan mematikan service untuk endpoint lain.
+    CLS_MODEL = None
+    CLS_SCALER = None
+    CLS_FEAT_COLS = []
+    CLS_LABEL_MAPPING = {}
 
 # =========================================
 # 5. APLIKASI FASTAPI
@@ -235,142 +308,73 @@ def health():
     return {"status": "ok", "message": "Classification, Insight, and Side Hustle models loaded."}
 
 # -----------------------------------------
-# ENDPOINT 1: CLASSIFICATION (FINANCIAL SCENARIO)
+# ENDPOINT 1: CLASSIFICATION (MONTHLY FINANCIAL CONDITION)
 # -----------------------------------------
 def build_classification_features(payload: ClassifyRequest) -> tuple[Dict[str, float], Dict[str, float], Dict[str, bool]]:
-    # Implementasi ini dibuat agar 100% selaras dengan metode inference minimal
-    # yang sudah dibangun di `finary_classify_model.ipynb`.
+    # 1) Raw input (IDR)
+    inc_idr = float(payload.monthly_income)
+    exp_idr = float(payload.monthly_expense_total)
+    sav_idr = float(payload.actual_savings)
+    goal_idr = float(payload.budget_goal)
+    emg_idr = float(payload.emergency_fund)
 
-    def _num(v: Any, default: float) -> float:
-        if v is None:
-            return float(default)
-        return float(v)
-
-    # ==========================
-    # 1) Normalisasi unit: IDR -> unit training
-    # ==========================
-    inc = float(payload.monthly_income) / UNIT_SCALE
-    exp = float(payload.monthly_expense_total) / UNIT_SCALE
-    savings = float(payload.actual_savings) / UNIT_SCALE
-    emergency_fund = float(payload.emergency_fund) / UNIT_SCALE
-    budget_goal = float(payload.budget_goal) / UNIT_SCALE
-
-    loan_payment = _num(payload.loan_payment, 0.0) / UNIT_SCALE
-    investment_amount = _num(payload.investment_amount, 0.0) / UNIT_SCALE
-    rent = _num(payload.rent_or_mortgage, 0.0) / UNIT_SCALE
-
-    discretionary_in = payload.discretionary_spending
-    essential_in = payload.essential_spending
-    if discretionary_in is None or essential_in is None:
-        discretionary = 0.30 * exp
-        essential = 0.70 * exp
-    else:
-        discretionary = float(discretionary_in) / UNIT_SCALE
-        essential = float(essential_in) / UNIT_SCALE
-
-    # ==========================
-    # 2) Non-uang + default aman
-    # ==========================
-    credit_score = _num(payload.credit_score, 650.0)
-    subscription_services = float(_num(payload.subscription_services, 0.0))
-    transaction_count = float(_num(payload.transaction_count, 0.0))
-    fraud_flag = float(int(_num(payload.fraud_flag, 0.0)))
-
-    dti = _num(payload.debt_to_income_ratio, (loan_payment / inc if inc > 0 else 0.0))
-
-    # ==========================
-    # 3) Engineered features
-    # ==========================
-    net_cash_flow = inc - exp
-    expense_ratio = exp / inc if inc > 0 else 0.0
-    savings_rate = savings / inc if inc > 0 else 0.0
-    financial_buffer = emergency_fund / exp if exp > 0 else 0.0
-
-    savings_goal_met = 1.0 if savings >= budget_goal else 0.0
-
-    debt_pressure = loan_payment * dti
-    spending_efficiency = (essential / exp) if exp > 0 else 0.0
-    lifestyle_burden = (discretionary / inc) if inc > 0 else 0.0
-    saving_behavior = (savings / budget_goal) if budget_goal > 0 else 0.0
-
-    credit_norm = float(np.clip((credit_score - 300.0) / 550.0, 0.0, 1.0))
-    buffer_norm = float(np.clip(financial_buffer / 3.0, 0.0, 1.0))
-    advice_score = float(
-        np.clip(
-            (
-                0.35 * credit_norm
-                + 0.35 * buffer_norm
-                + 0.15 * spending_efficiency
-                + 0.15 * float(np.clip(savings_rate / 0.5, 0.0, 1.0))
-            )
-            * 100.0,
-            0.0,
-            100.0,
-        )
-    )
-
-    stress_medium = 1.0 if (expense_ratio > 0.9 or dti >= 0.35) else 0.0
-
-    # One-hot category: hanya yang ada di 27 fitur terpilih
-    main_category = (payload.main_category or "").strip().title()
-    cat_education = 1.0 if main_category == "Education" else 0.0
-    cat_entertainment = 1.0 if main_category == "Entertainment" else 0.0
-    cat_transportation = 1.0 if main_category == "Transportation" else 0.0
-
-    # ==========================
-    # 4) Mapping ke schema 27 fitur (CLS_FEAT_COLS)
-    # ==========================
-    features = {col: 0.0 for col in CLS_FEAT_COLS}
-    update_map = {
-        "saving_behavior": saving_behavior,
-        "expense_ratio": expense_ratio,
-        "actual_savings": savings,
-        "net_cash_flow": net_cash_flow,
-        "monthly_income": inc,
-        "monthly_expense_total": exp,
-        "lifestyle_burden": lifestyle_burden,
-        "savings_goal_met": savings_goal_met,
-        "spending_efficiency": spending_efficiency,
-        "financial_buffer": financial_buffer,
-        "discretionary_spending": discretionary,
-        "budget_goal": budget_goal,
-        "savings_rate": savings_rate,
-        "rent_or_mortgage": rent,
-        "debt_pressure": debt_pressure,
-        "emergency_fund": emergency_fund,
-        "category_Education": cat_education,
-        "financial_advice_score": advice_score,
-        "credit_score": credit_score,
-        "category_Entertainment": cat_entertainment,
-        "investment_amount": investment_amount,
-        "loan_payment": loan_payment,
-        "subscription_services": subscription_services,
-        "category_Transportation": cat_transportation,
-        "financial_stress_level_Medium": stress_medium,
-        "fraud_flag": fraud_flag,
-        "transaction_count": transaction_count,
-    }
-    for k, v in update_map.items():
-        if k in features:
-            features[k] = float(v)
-
-    # ==========================
-    # 5) Indikator & risk flags (untuk response)
-    # ==========================
-    risk_flags = {
-        "negative_cash_flow": net_cash_flow < 0,
-        "high_expense_ratio": expense_ratio > 0.9,
-        "high_debt_ratio": dti >= 0.35,
-        "low_emergency_fund": financial_buffer < 1.0,
-    }
+    # 2) Derived indicators in IDR (for response)
+    net_cf_idr = inc_idr - exp_idr
+    expense_ratio = _safe_div(exp_idr, inc_idr)
+    savings_rate = _safe_div(sav_idr, inc_idr)
+    savings_goal_met = 1.0 if sav_idr >= goal_idr else 0.0
+    spending_efficiency = _safe_div(net_cf_idr, exp_idr)
 
     indicators = {
-        "savings_rate": savings_rate,
+        "monthly_income": inc_idr,
+        "monthly_expense_total": exp_idr,
+        "actual_savings": sav_idr,
+        "budget_goal": goal_idr,
+        "emergency_fund": emg_idr,
+        "net_cash_flow": net_cf_idr,
         "expense_ratio": expense_ratio,
-        "net_cash_flow": net_cash_flow,
-        "debt_to_income_ratio": dti,
-        "financial_buffer": financial_buffer,
+        "savings_rate": savings_rate,
+        "spending_efficiency": spending_efficiency,
     }
+
+    # 3) Risk flags (threshold sesuai spesifikasi)
+    risk_flags = {
+        "negative_cash_flow": (net_cf_idr / UNIT_SCALE) < 0,  # sama tanda, pakai scaled space
+        "high_expense_ratio": expense_ratio >= 0.85,
+        "low_savings_rate": savings_rate < 0.10,
+        "savings_goal_not_met": savings_goal_met == 0.0,
+        "low_spending_efficiency": spending_efficiency < 0.10,
+    }
+
+    # 4) Build model features in training space (scaled)
+    inc = inc_idr / UNIT_SCALE
+    exp = exp_idr / UNIT_SCALE
+    sav = sav_idr / UNIT_SCALE
+    goal = goal_idr / UNIT_SCALE
+    emg = emg_idr / UNIT_SCALE
+
+    net_cf = inc - exp
+    exp_ratio_scaled = _safe_div(exp, inc)
+    sav_rate_scaled = _safe_div(sav, inc)
+    goal_met_scaled = 1.0 if sav >= goal else 0.0
+    spend_eff_scaled = _safe_div(net_cf, exp)
+
+    features = {col: 0.0 for col in CLS_FEAT_COLS}
+    update = {
+        "monthly_income": inc,
+        "monthly_expense_total": exp,
+        "actual_savings": sav,
+        "net_cash_flow": net_cf,
+        "expense_ratio": exp_ratio_scaled,
+        "savings_rate": sav_rate_scaled,
+        "budget_goal": goal,
+        "savings_goal_met": goal_met_scaled,
+        "emergency_fund": emg,
+        "spending_efficiency": spend_eff_scaled,
+    }
+    for k, v in update.items():
+        if k in features:
+            features[k] = float(v)
 
     return features, indicators, risk_flags
 
@@ -381,42 +385,23 @@ def build_classification_recommendations(
 ) -> List[str]:
     recs: List[str] = []
 
-    # Label model klasifikasi: survival / stable / growth
     if classification == "survival":
-        recs.extend(
-            [
-                "kurangi_pengeluaran_non_esensial",
-                "buat_rencana_pemulihan_cashflow",
-                "prioritaskan_pelunasan_utang",
-            ]
-        )
+        recs.extend(["reduce_non_essential_expenses", "build_cashflow_recovery_plan", "prioritize_emergency_fund"])
     elif classification == "stable":
-        recs.extend(
-            [
-                "pertahankan_disiplin_anggaran",
-                "tingkatkan_dana_darurat",
-                "optimalkan_subscriptions",
-            ]
-        )
+        recs.extend(["improve_saving_rate", "maintain_budget_discipline", "increase_financial_buffer"])
     elif classification == "growth":
-        recs.extend(
-            [
-                "tingkatkan_investasi_berkala",
-                "maksimalkan_tabungan_dan_goal",
-                "evaluasi_target_keuangan",
-            ]
-        )
+        recs.extend(["maintain_growth_momentum", "increase_investment_allocation", "optimize_long_term_savings"])
 
     if risk_flags.get("negative_cash_flow"):
-        recs.append("perbaiki_cashflow_negatif")
+        recs.append("fix_negative_cash_flow")
     if risk_flags.get("high_expense_ratio"):
-        recs.append("turunkan_expense_ratio")
-    if risk_flags.get("high_debt_ratio"):
-        recs.append("turunkan_rasio_utang")
-    if risk_flags.get("low_emergency_fund"):
-        recs.append("tingkatkan_dana_darurat")
-    if indicators.get("savings_rate", 0.0) < 0.1:
-        recs.append("tingkatkan_savings_rate")
+        recs.append("reduce_expense_ratio")
+    if risk_flags.get("low_savings_rate"):
+        recs.append("improve_saving_rate")
+    if risk_flags.get("savings_goal_not_met"):
+        recs.append("align_savings_with_goal")
+    if risk_flags.get("low_spending_efficiency"):
+        recs.append("improve_spending_efficiency")
 
     # de-dupe while preserving order
     return list(dict.fromkeys(recs))
@@ -427,28 +412,30 @@ def build_classification_explanation(
     indicators: Dict[str, float],
     risk_flags: Dict[str, bool],
 ) -> str:
-    reasons: List[str] = []
-
-    if risk_flags.get("negative_cash_flow"):
-        reasons.append("pengeluaran bulanan melebihi pendapatan bulanan")
-    if risk_flags.get("high_expense_ratio"):
-        reasons.append("expense ratio tergolong tinggi")
-    if risk_flags.get("high_debt_ratio"):
-        reasons.append("rasio utang terhadap pendapatan di atas ambang yang direkomendasikan")
-    if risk_flags.get("low_emergency_fund"):
-        reasons.append("cakupan dana darurat masih rendah")
-    if not reasons:
-        reasons.append("indikator inti berada pada rentang yang masih terkelola")
-
-    return (
-        f"Pengguna diklasifikasikan sebagai {classification} dengan tingkat keyakinan {score:.2f}. "
-        f"Faktor utama: {', '.join(reasons)}."
-    )
+    if classification == "survival":
+        base = "The user is classified as survival because monthly cash flow is negative or financial margin is very limited."
+    elif classification == "stable":
+        base = "The user is classified as stable because monthly cash flow is positive but financial margin still needs improvement."
+    else:
+        base = "The user is classified as growth because monthly cash flow and savings indicators are strong."
+    return f"{base} Model confidence: {score:.2f}."
 
 
 @app.post("/classify", response_model=ClassifyResponse)
 def classify_financial_scenario(payload: ClassifyRequest):
+    """Classify Monthly Financial Condition.
+
+    Target classes: `survival`, `stable`, `growth`.
+
+    Input uang dalam IDR asli. Backend akan:
+    - melakukan scaling IDR -> training space (`UNIT_SCALE`)
+    - menghitung fitur turunan deterministik
+    - melakukan inference menggunakan artifact klasifikasi
+    """
     try:
+        if CLS_MODEL is None or CLS_SCALER is None or not CLS_FEAT_COLS or not CLS_LABEL_MAPPING:
+            raise RuntimeError("Classification artifacts are not loaded.")
+
         features, indicators, risk_flags = build_classification_features(payload)
 
         df_input = pd.DataFrame([features]).reindex(columns=CLS_FEAT_COLS, fill_value=0.0)
@@ -490,9 +477,6 @@ def classify_financial_scenario(payload: ClassifyRequest):
         )
 
     except Exception as exc:
-        # Error 422 untuk payload yang tidak memenuhi kontrak input minimal
-        if isinstance(exc, ValueError) and "Field wajib" in str(exc):
-            raise HTTPException(status_code=422, detail=str(exc))
         raise HTTPException(status_code=500, detail=f"Classification inference error: {str(exc)}")
 
 # -----------------------------------------
@@ -530,8 +514,12 @@ def predict_insight(payload: PredictRequest):
             "debt_ratio_flag": 1.0 if dti >= 0.35 else 0.0, "low_emergency_flag": 1.0 if buffer < 1.0 else 0.0
         })
         
-        if f"income_type_{payload.income_type}" in features: features[f"income_type_{payload.income_type}"] = 1.0
-        if f"category_{payload.main_category}" in features: features[f"category_{payload.main_category}"] = 1.0
+        default_income_type = INS_DEFAULT_INCOME_TYPE
+        default_main_category = INS_DEFAULT_MAIN_CATEGORY
+        if f"income_type_{default_income_type}" in features:
+            features[f"income_type_{default_income_type}"] = 1.0
+        if f"category_{default_main_category}" in features:
+            features[f"category_{default_main_category}"] = 1.0
         features["cash_flow_status_Positive"] = 1.0 if net_cf > 0 else 0.0
         features["cash_flow_status_Neutral"] = 1.0 if net_cf <= 0 else 0.0
 

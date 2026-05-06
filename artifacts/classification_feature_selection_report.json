@@ -1,40 +1,30 @@
 {
-  "initial_feature_count": 42,
-  "after_numeric_filter_count": 42,
-  "constant_dropped_count": 0,
-  "constant_dropped": [],
-  "corr_threshold": 0.98,
-  "corr_dropped_count": 0,
-  "corr_dropped": [],
-  "selected_count": 27,
-  "selected_feature_columns": [
-    "saving_behavior",
-    "expense_ratio",
-    "actual_savings",
-    "net_cash_flow",
+  "strategy": "minimal_features_only",
+  "raw_input_features": [
     "monthly_income",
     "monthly_expense_total",
-    "lifestyle_burden",
-    "savings_goal_met",
-    "spending_efficiency",
-    "financial_buffer",
-    "discretionary_spending",
+    "actual_savings",
     "budget_goal",
-    "savings_rate",
-    "rent_or_mortgage",
-    "debt_pressure",
-    "emergency_fund",
-    "category_Education",
-    "financial_advice_score",
-    "credit_score",
-    "category_Entertainment",
-    "investment_amount",
-    "loan_payment",
-    "subscription_services",
-    "category_Transportation",
-    "financial_stress_level_Medium",
-    "fraud_flag",
-    "transaction_count"
+    "emergency_fund"
   ],
-  "selection_method": "MI + ExtraTrees rank aggregation on train split"
+  "computed_features": [
+    "net_cash_flow",
+    "expense_ratio",
+    "savings_rate",
+    "savings_goal_met",
+    "spending_efficiency"
+  ],
+  "final_features": [
+    "monthly_income",
+    "monthly_expense_total",
+    "actual_savings",
+    "net_cash_flow",
+    "expense_ratio",
+    "savings_rate",
+    "budget_goal",
+    "savings_goal_met",
+    "emergency_fund",
+    "spending_efficiency"
+  ],
+  "notes": "Tidak menggunakan fitur yang sulit didapat dari user. Fitur turunan dihitung deterministik dengan safe division."
 }
