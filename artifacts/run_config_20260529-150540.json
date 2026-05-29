@@ -1,0 +1,7 @@
+{
+  "run_id": "20260529-150540",
+  "epochs": 150,
+  "batch_size": 128,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0001
+}
