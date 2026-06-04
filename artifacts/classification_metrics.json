@@ -135,5 +135,9 @@
   "optimizer": "AdamW",
   "epochs_trained": 64,
   "best_epoch": 44,
-  "notes": "Retrain dengan fitur minimal realistis + fitur turunan deterministik + custom GradientTape."
+  "notes": "Retrain dengan fitur minimal realistis + fitur turunan deterministik + custom GradientTape.",
+  "tensorboard_run_id": "20260529-150540",
+  "tensorboard_zip": "artifacts\\tensorboard_20260529-150540.zip",
+  "best_model_path": "artifacts\\classification_model_best_20260529-150540.keras",
+  "last_model_path": "artifacts\\classification_model_last_20260529-150540.keras"
 }
